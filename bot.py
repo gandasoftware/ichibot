@@ -20,11 +20,14 @@ EXCEL_FILE = "data.xlsx"
 # ============================================================
 
 def kirim_pesan(chat_id, text):
-    requests.get(f"{URL}/sendMessage", params={
-        "chat_id": chat_id,
-        "text": f"<pre>{text}</pre>",
-        "parse_mode": "HTML"
-    })
+    requests.get(
+        f"{URL}/sendMessage",
+        params={
+            "chat_id": chat_id,
+            "text": f"<pre>{text}</pre>",
+            "parse_mode": "HTML"
+        }
+    )
 
 def ambil_update(offset=None):
     if offset:
@@ -87,9 +90,11 @@ def get_ihsg():
 
 def build_dashboard():
 
+    # ===== MACRO =====
     GDP_INDONESIA = get_gdp_indonesia_usd()
     MARKET_CAP_IDX = get_marketcap_idx_usd()
 
+    # ===== LOAD PORTFOLIO =====
     saham_df = pd.read_excel(EXCEL_FILE, sheet_name="Saham")
     cash_df = pd.read_excel(EXCEL_FILE, sheet_name="Cash")
     cash = float(pd.to_numeric(cash_df.iloc[:,1], errors="coerce").dropna().iloc[-1])
@@ -126,6 +131,7 @@ def build_dashboard():
     df = pd.DataFrame(rows)
     df["Bobot"] = df["Nilai Now"] / total_now * 100 if total_now else 0
 
+    # ===== SUMMARY =====
     total_porto = total_now + cash
     porsi_saham = total_now / total_porto * 100 if total_porto else 0
     porsi_cash = 100 - porsi_saham
@@ -163,6 +169,7 @@ def build_dashboard():
     aksi = "TAMBAH SAHAM" if porsi_saham < target_buffett - 2 else "TAHAN / REBALANCE"
     ihsg_last = get_ihsg()
 
+    # ===== OUTPUT =====
     now_str = datetime.now().strftime("%d %b %Y %H:%M")
 
     output = ""
@@ -177,6 +184,21 @@ def build_dashboard():
     output += f"Market Cap IDX      : ${MARKET_CAP_IDX/1e12:>5.2f} T\n"
     output += f"Buffett Indicator   : {buffett:>6.2f} %\n"
     output += f"Pasar               : {kondisi_pasar}\n"
+
+    output += "." * 50 + "\n"
+    output += f"Saham Anda          : {porsi_saham:>6.2f} %\n"
+    output += f"Target Buffett      : {target_buffett:>6} %\n"
+    output += f"Cash Powder Buffett : {cash_powder:>6} %\n"
+    output += f"Status vs Buffett   : {status_vs}\n"
+
+    output += "." * 50 + "\n"
+    output += f"Total Saham         : {rupiah(total_now)}\n"
+    output += f"Cash                : {rupiah(cash)}\n"
+    output += f"Total               : {rupiah(total_porto)}\n"
+
+    output += "." * 50 + "\n"
+    output += f"Porsi Cash          : {porsi_cash:>6.2f} %\n"
+    output += f"REKOMENDASI AKSI    : {aksi}\n"
 
     return output
 
