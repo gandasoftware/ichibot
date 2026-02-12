@@ -132,29 +132,19 @@ def build_dashboard():
 
     # ===== SUMMARY =====
     total_porto = total_now + cash
-    porsi_saham = total_now / total_porto * 100 if total_porto else 0
-    porsi_cash = 100 - porsi_saham
-
     buffett = MARKET_CAP_IDX / GDP_INDONESIA * 100
+    ihsg_last = get_ihsg()
 
     if buffett < 50:
         kondisi_pasar = "SANGAT MURAH"
-        target_buffett = 90
     elif buffett < 60:
         kondisi_pasar = "MURAH"
-        target_buffett = 85
     elif buffett < 80:
         kondisi_pasar = "WAJAR"
-        target_buffett = 75
     elif buffett < 100:
         kondisi_pasar = "MAHAL"
-        target_buffett = 65
     else:
         kondisi_pasar = "SANGAT MAHAL"
-        target_buffett = 60
-
-    aksi = "TAMBAH SAHAM" if porsi_saham < target_buffett - 2 else "TAHAN / REBALANCE"
-    ihsg_last = get_ihsg()
 
     # ===== OUTPUT =====
     now_str = datetime.now().strftime("%d %b %Y %H:%M")
@@ -172,12 +162,12 @@ def build_dashboard():
     output += f"Buffett Indicator   : {buffett:>6.2f} %\n"
     output += f"Pasar               : {kondisi_pasar}\n"
 
-    output += "." * 50 + "\n"
+    output += "\n" + "." * 50 + "\n"
     output += f"Total Saham         : {rupiah(total_now)}\n"
     output += f"Cash                : {rupiah(cash)}\n"
     output += f"Total Equity        : {rupiah(total_porto)}\n"
 
-    # ===== PORTFOLIO STYLE IPOT =====
+    # ===== PORTFOLIO STYLE =====
     output += "\nPORTFOLIO SUMMARY\n"
     output += "==================\n\n"
     output += f"Cash Available : {rupiah(cash)}\n\n"
@@ -186,15 +176,14 @@ def build_dashboard():
 
     for _, r in df.iterrows():
 
+        bobot = r["Nilai Now"] / total_now * 100 if total_now else 0
         sign = "+" if r["Gain"] >= 0 else "-"
         gain_pct = abs(r["Gain %"])
 
-        output += (
-            f"{r['Kode']:<6}{r['Lot']:>5} lot   Avg {r['Harga Beli']:>7,.0f}\n"
-            f"{'':11}Last {r['Harga Now']:>7,.0f}\n"
-            f"{'':11}Value {rupiah(r['Nilai Now'])}\n"
-            f"{'':11}Unrealized {sign}{rupiah(abs(r['Gain']))} ({sign}{gain_pct:.2f}%)\n\n"
-        )
+        output += f"{r['Kode']:<6}{r['Lot']:>5} lot   Avg {r['Harga Beli']:>7,.0f}\n"
+        output += f"{'':11}Last {r['Harga Now']:>7,.0f}\n"
+        output += f"{'':11}Value {rupiah(r['Nilai Now'])} ({bobot:.2f}%)\n"
+        output += f"{'':11}Unrealized {sign}{rupiah(abs(r['Gain']))} ({sign}{gain_pct:.2f}%)\n\n"
 
     total_gain = total_now - total_beli
     total_gain_pct = total_gain / total_beli * 100 if total_beli else 0
