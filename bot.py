@@ -6,7 +6,7 @@ import yfinance as yf
 from datetime import datetime
 
 # ============================================================
-# TELEGRAM CONFIG (RAILWAY VARIABLE)
+# CONFIG
 # ============================================================
 
 TOKEN = os.getenv("TOKEN")
@@ -16,7 +16,7 @@ last_update_id = None
 EXCEL_FILE = "data.xlsx"
 
 # ============================================================
-# TELEGRAM FUNCTIONS
+# TELEGRAM
 # ============================================================
 
 def kirim_pesan(chat_id, text):
@@ -35,7 +35,7 @@ def ambil_update(offset=None):
     return requests.get(f"{URL}/getUpdates").json()
 
 # ============================================================
-# MACRO ONLINE
+# MACRO DATA (WORLD BANK)
 # ============================================================
 
 def get_gdp_indonesia_usd():
@@ -91,8 +91,30 @@ def get_ihsg():
 def build_dashboard():
 
     # ===== MACRO =====
-    GDP_INDONESIA = get_gdp_indonesia_usd()
-    MARKET_CAP_IDX = get_marketcap_idx_usd()
+    GDP = get_gdp_indonesia_usd()
+    MCAP = get_marketcap_idx_usd()
+    ihsg = get_ihsg()
+
+    buffett = MCAP / GDP * 100
+
+    # ===== KONDISI PASAR + TARGET =====
+    if buffett < 50:
+        kondisi_pasar = "SANGAT MURAH"
+        target_saham = 90
+    elif buffett < 60:
+        kondisi_pasar = "MURAH"
+        target_saham = 85
+    elif buffett < 80:
+        kondisi_pasar = "WAJAR"
+        target_saham = 75
+    elif buffett < 100:
+        kondisi_pasar = "MAHAL"
+        target_saham = 65
+    else:
+        kondisi_pasar = "SANGAT MAHAL"
+        target_saham = 60
+
+    target_cash = 100 - target_saham
 
     # ===== LOAD PORTFOLIO =====
     saham_df = pd.read_excel(EXCEL_FILE, sheet_name="Saham")
@@ -106,19 +128,19 @@ def build_dashboard():
     for _, r in saham_df.iterrows():
         kode = r["Kode"]
         lot = int(r["Lot"])
-        harga_beli = to_float(r["Harga Beli"])
-        harga_now = get_price(f"{kode}.JK", fallback=harga_beli)
+        avg = to_float(r["Harga Beli"])
+        last = get_price(f"{kode}.JK", fallback=avg)
 
-        nilai_beli = harga_beli * lot * 100
-        nilai_now = harga_now * lot * 100
+        nilai_beli = avg * lot * 100
+        nilai_now = last * lot * 100
         gain = nilai_now - nilai_beli
         gain_pct = (gain / nilai_beli * 100) if nilai_beli else 0
 
         rows.append({
             "Kode": kode,
             "Lot": lot,
-            "Harga Beli": harga_beli,
-            "Harga Now": harga_now,
+            "Avg": avg,
+            "Last": last,
             "Nilai Now": nilai_now,
             "Gain": gain,
             "Gain %": gain_pct
@@ -127,24 +149,20 @@ def build_dashboard():
         total_beli += nilai_beli
         total_now += nilai_now
 
-    df = pd.DataFrame(rows)
-    df = df.sort_values("Nilai Now", ascending=False)
+    df = pd.DataFrame(rows).sort_values("Nilai Now", ascending=False)
 
-    # ===== SUMMARY =====
-    total_porto = total_now + cash
-    buffett = MARKET_CAP_IDX / GDP_INDONESIA * 100
-    ihsg_last = get_ihsg()
+    total_equity = total_now + cash
+    real_saham_pct = total_now / total_equity * 100 if total_equity else 0
+    real_cash_pct = cash / total_equity * 100 if total_equity else 0
 
-    if buffett < 50:
-        kondisi_pasar = "SANGAT MURAH"
-    elif buffett < 60:
-        kondisi_pasar = "MURAH"
-    elif buffett < 80:
-        kondisi_pasar = "WAJAR"
-    elif buffett < 100:
-        kondisi_pasar = "MAHAL"
+    deviasi = real_saham_pct - target_saham
+
+    if deviasi > 2:
+        rekomendasi = "REBALANCE / TRIM POSISI"
+    elif deviasi < -2:
+        rekomendasi = "TAMBAH SAHAM"
     else:
-        kondisi_pasar = "SANGAT MAHAL"
+        rekomendasi = "TAHAN / REBALANCE RINGAN"
 
     # ===== OUTPUT =====
     now_str = datetime.now().strftime("%d %b %Y %H:%M")
@@ -156,23 +174,27 @@ def build_dashboard():
 
     output += f"Analisa dijalankan  : {now_str}\n"
     output += "." * 50 + "\n"
-    output += f"IHSG Terakhir       : {ihsg_last:>10,.2f}\n"
-    output += f"GDP Indonesia       : ${GDP_INDONESIA/1e12:>5.2f} T\n"
-    output += f"Market Cap IDX      : ${MARKET_CAP_IDX/1e12:>5.2f} T\n"
-    output += f"Buffett Indicator   : {buffett:>6.2f} %\n"
-    output += f"Pasar               : {kondisi_pasar}\n"
+    output += f"IHSG Terakhir       : {ihsg:>10,.2f}\n"
+    output += f"GDP Indonesia       : ${GDP/1e12:>5.2f} T\n"
+    output += f"Market Cap IDX      : ${MCAP/1e12:>5.2f} T\n"
+    output += f"Buffett Indicator   : {buffett:>6.2f}%\n"
+    output += f"Kondisi Pasar       : {kondisi_pasar}\n\n"
+
+    output += f"Target Saham (Buffett) : {target_saham:.2f}%\n"
+    output += f"Target Cash (Buffett)  : {target_cash:.2f}%\n\n"
+    output += f"Real Saham             : {real_saham_pct:.2f}%\n"
+    output += f"Real Cash              : {real_cash_pct:.2f}%\n"
+    output += f"Deviasi vs Target      : {deviasi:+.2f}%\n"
+    output += f"Rekomendasi Aksi       : {rekomendasi}\n"
 
     output += "\n" + "." * 50 + "\n"
     output += f"Total Saham         : {rupiah(total_now)}\n"
     output += f"Cash                : {rupiah(cash)}\n"
-    output += f"Total Equity        : {rupiah(total_porto)}\n"
+    output += f"Total Equity        : {rupiah(total_equity)}\n"
 
-    # ===== PORTFOLIO STYLE =====
+    # ===== DETAIL PORTFOLIO =====
     output += "\nPORTFOLIO SUMMARY\n"
     output += "==================\n\n"
-    output += f"Cash Available : {rupiah(cash)}\n\n"
-    output += "Holdings:\n"
-    output += "--------------------------------\n\n"
 
     for _, r in df.iterrows():
 
@@ -180,19 +202,10 @@ def build_dashboard():
         sign = "+" if r["Gain"] >= 0 else "-"
         gain_pct = abs(r["Gain %"])
 
-        output += f"{r['Kode']:<6}{r['Lot']:>5} lot   Avg {r['Harga Beli']:>7,.0f}\n"
-        output += f"{'':11}Last {r['Harga Now']:>7,.0f}\n"
+        output += f"{r['Kode']:<6}{r['Lot']:>5} lot   Avg {r['Avg']:>7,.0f}\n"
+        output += f"{'':11}Last {r['Last']:>7,.0f}\n"
         output += f"{'':11}Value {rupiah(r['Nilai Now'])} ({bobot:.2f}%)\n"
         output += f"{'':11}Unrealized {sign}{rupiah(abs(r['Gain']))} ({sign}{gain_pct:.2f}%)\n\n"
-
-    total_gain = total_now - total_beli
-    total_gain_pct = total_gain / total_beli * 100 if total_beli else 0
-    sign_total = "+" if total_gain >= 0 else "-"
-
-    output += "--------------------------------\n"
-    output += f"Total Market Value : {rupiah(total_now)}\n"
-    output += f"Total Gain/Loss    : {sign_total}{rupiah(abs(total_gain))} ({sign_total}{abs(total_gain_pct):.2f}%)\n"
-    output += f"Total Equity       : {rupiah(total_porto)}\n"
 
     return output
 
@@ -215,8 +228,7 @@ while True:
             text = pesan.get("text", "").lower()
 
             if text == "/dashboard":
-                hasil = build_dashboard()
-                kirim_pesan(chat_id, hasil)
+                kirim_pesan(chat_id, build_dashboard())
 
     except Exception as e:
         print("Error:", e)
