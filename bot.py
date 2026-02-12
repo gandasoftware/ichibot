@@ -35,7 +35,7 @@ def ambil_update(offset=None):
     return requests.get(f"{URL}/getUpdates").json()
 
 # ============================================================
-# MACRO ONLINE (WORLD BANK)
+# MACRO ONLINE
 # ============================================================
 
 def get_gdp_indonesia_usd():
@@ -118,7 +118,6 @@ def build_dashboard():
             "Kode": kode,
             "Lot": lot,
             "Harga Beli": harga_beli,
-            "Nilai Beli": nilai_beli,
             "Harga Now": harga_now,
             "Nilai Now": nilai_now,
             "Gain": gain,
@@ -129,7 +128,7 @@ def build_dashboard():
         total_now += nilai_now
 
     df = pd.DataFrame(rows)
-    df["Bobot"] = df["Nilai Now"] / total_now * 100 if total_now else 0
+    df = df.sort_values("Nilai Now", ascending=False)
 
     # ===== SUMMARY =====
     total_porto = total_now + cash
@@ -141,30 +140,18 @@ def build_dashboard():
     if buffett < 50:
         kondisi_pasar = "SANGAT MURAH"
         target_buffett = 90
-        cash_powder = 10
     elif buffett < 60:
         kondisi_pasar = "MURAH"
         target_buffett = 85
-        cash_powder = 15
     elif buffett < 80:
         kondisi_pasar = "WAJAR"
         target_buffett = 75
-        cash_powder = 25
     elif buffett < 100:
         kondisi_pasar = "MAHAL"
         target_buffett = 65
-        cash_powder = 35
     else:
         kondisi_pasar = "SANGAT MAHAL"
         target_buffett = 60
-        cash_powder = 40
-
-    if porsi_saham > target_buffett + 2:
-        status_vs = "OVERWEIGHT vs BUFFETT"
-    elif porsi_saham < target_buffett - 2:
-        status_vs = "UNDERWEIGHT vs BUFFETT"
-    else:
-        status_vs = "SESUAI TARGET"
 
     aksi = "TAMBAH SAHAM" if porsi_saham < target_buffett - 2 else "TAHAN / REBALANCE"
     ihsg_last = get_ihsg()
@@ -186,19 +173,37 @@ def build_dashboard():
     output += f"Pasar               : {kondisi_pasar}\n"
 
     output += "." * 50 + "\n"
-    output += f"Saham Anda          : {porsi_saham:>6.2f} %\n"
-    output += f"Target Buffett      : {target_buffett:>6} %\n"
-    output += f"Cash Powder Buffett : {cash_powder:>6} %\n"
-    output += f"Status vs Buffett   : {status_vs}\n"
-
-    output += "." * 50 + "\n"
     output += f"Total Saham         : {rupiah(total_now)}\n"
     output += f"Cash                : {rupiah(cash)}\n"
-    output += f"Total               : {rupiah(total_porto)}\n"
+    output += f"Total Equity        : {rupiah(total_porto)}\n"
 
-    output += "." * 50 + "\n"
-    output += f"Porsi Cash          : {porsi_cash:>6.2f} %\n"
-    output += f"REKOMENDASI AKSI    : {aksi}\n"
+    # ===== PORTFOLIO STYLE IPOT =====
+    output += "\nPORTFOLIO SUMMARY\n"
+    output += "==================\n\n"
+    output += f"Cash Available : {rupiah(cash)}\n\n"
+    output += "Holdings:\n"
+    output += "--------------------------------\n\n"
+
+    for _, r in df.iterrows():
+
+        sign = "+" if r["Gain"] >= 0 else "-"
+        gain_pct = abs(r["Gain %"])
+
+        output += (
+            f"{r['Kode']:<6}{r['Lot']:>5} lot   Avg {r['Harga Beli']:>7,.0f}\n"
+            f"{'':11}Last {r['Harga Now']:>7,.0f}\n"
+            f"{'':11}Value {rupiah(r['Nilai Now'])}\n"
+            f"{'':11}Unrealized {sign}{rupiah(abs(r['Gain']))} ({sign}{gain_pct:.2f}%)\n\n"
+        )
+
+    total_gain = total_now - total_beli
+    total_gain_pct = total_gain / total_beli * 100 if total_beli else 0
+    sign_total = "+" if total_gain >= 0 else "-"
+
+    output += "--------------------------------\n"
+    output += f"Total Market Value : {rupiah(total_now)}\n"
+    output += f"Total Gain/Loss    : {sign_total}{rupiah(abs(total_gain))} ({sign_total}{abs(total_gain_pct):.2f}%)\n"
+    output += f"Total Equity       : {rupiah(total_porto)}\n"
 
     return output
 
