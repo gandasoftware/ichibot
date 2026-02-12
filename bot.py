@@ -4,6 +4,7 @@ import time
 import pandas as pd
 import yfinance as yf
 from datetime import datetime
+from zoneinfo import ZoneInfo  # WIB support
 
 # ============================================================
 # CONFIG
@@ -90,6 +91,9 @@ def get_ihsg():
 
 def build_dashboard():
 
+    # ===== WIB TIME =====
+    now_str = datetime.now(ZoneInfo("Asia/Jakarta")).strftime("%d %b %Y %H:%M")
+
     # ===== MACRO =====
     GDP = get_gdp_indonesia_usd()
     MCAP = get_marketcap_idx_usd()
@@ -165,14 +169,12 @@ def build_dashboard():
         rekomendasi = "TAHAN / REBALANCE RINGAN"
 
     # ===== OUTPUT =====
-    now_str = datetime.now().strftime("%d %b %Y %H:%M")
-
     output = ""
     output += "~" * 50 + "\n"
     output += "GANDA DASHBOARD INVESTASI".center(50) + "\n"
     output += "~" * 50 + "\n\n"
 
-    output += f"Analisa dijalankan  : {now_str}\n"
+    output += f"Analisa dijalankan  : {now_str} WIB\n"
     output += "." * 50 + "\n"
     output += f"IHSG Terakhir       : {ihsg:>10,.2f}\n"
     output += f"GDP Indonesia       : ${GDP/1e12:>5.2f} T\n"
@@ -192,7 +194,6 @@ def build_dashboard():
     output += f"Cash                : {rupiah(cash)}\n"
     output += f"Total Equity        : {rupiah(total_equity)}\n"
 
-    # ===== DETAIL PORTFOLIO =====
     output += "\nPORTFOLIO SUMMARY\n"
     output += "==================\n\n"
 
