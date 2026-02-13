@@ -170,12 +170,12 @@ def build_dashboard():
 
     # ===== OUTPUT =====
     output = ""
-    output += "~" * 50 + "\n"
-    output += "GANDA DASHBOARD INVESTASI".center(50) + "\n"
-    output += "~" * 50 + "\n\n"
+    output += "~" * 40 + "\n"
+    output += "GANDA DASHBOARD INVESTASI".center(40) + "\n"
+    output += "~" * 40 + "\n\n"
 
     output += f"Analisa dijalankan  : {now_str} WIB\n"
-    output += "." * 50 + "\n"
+    output += "." * 40 + "\n"
     output += f"IHSG Terakhir       : {ihsg:>10,.2f}\n"
     output += f"GDP Indonesia       : ${GDP/1e12:>5.2f} T\n"
     output += f"Market Cap IDX      : ${MCAP/1e12:>5.2f} T\n"
@@ -189,7 +189,7 @@ def build_dashboard():
     output += f"Deviasi vs Target      : {deviasi:+.2f}%\n"
     output += f"Rekomendasi Aksi       : {rekomendasi}\n"
 
-    output += "\n" + "." * 50 + "\n"
+    output += "\n" + "." * 40 + "\n"
     output += f"Total Saham         : {rupiah(total_now)}\n"
     output += f"Cash                : {rupiah(cash)}\n"
     output += f"Total Equity        : {rupiah(total_equity)}\n"
@@ -235,3 +235,4 @@ while True:
         print("Error:", e)
 
     time.sleep(1)
+
